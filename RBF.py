@@ -4,22 +4,28 @@ import os
 import time
 from sklearn.cluster import KMeans
 import copy
-import rospy
+# import rospy
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from scipy.spatial.transform import Rotation as sciR
+import yaml
 
 import torch_rbf as rbf # reference: https://github.com/JeremyLinux/PyTorch-Radial-Basis-Function-Layer
 
 from utils.data_augmentation import dataRandomTransform 
 from utils.state_index import I
+from utils.config_params import load_config_params
+
 
 params_online_window_time = 2  # unit: second
 params_online_max_valid_fps_vel = 0.3
 params_online_fps_vel_thres = 0.01
 params_online_min_valid_fps_vel = 0.00
 params_update_if_window_full = False
+
+
+
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -57,7 +63,7 @@ class Net_J(nn.Module):
     def forward(self, x):
         theta = (self.fc1(x))
         output = (self.fc2(theta)) 
-        output = torch.reshape(torch.reshape(output, (-1, self.nFPs, 12, 3)).transpose(2, 3), (-1, 3 * self.nFPs, 12)) # J: dimension: 30 * 12
+        # output = torch.reshape(torch.reshape(output, (-1, self.nFPs, 12, 3)).transpose(2, 3), (-1, 3 * self.nFPs, 12)) # J: dimension: 30 * 12
         return output
 
     # use kmeans to calculate the initial value of mu and sigma in RBFN
@@ -90,16 +96,17 @@ class Net_J(nn.Module):
 # ----------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------
 class JacobianPredictor(object):
+    params = load_config_params()
 
-    numFPs = rospy.get_param("DLO/num_FPs")
-    projectDir = rospy.get_param("project_dir")
-    online_learning_rate = rospy.get_param("controller/online_learning/learning_rate")
+    numFPs = params["DLO/num_FPs"]
+    projectDir = params["project_dir"]
+    online_learning_rate = params["controller/online_learning/learning_rate"]
     lr_task_e = online_learning_rate
-    lr_approx_e = online_learning_rate * rospy.get_param("controller/online_learning/weight_ratio")
-    env = rospy.get_param("env/sim_or_real")
-    env_dim = rospy.get_param("env/dimension")
-    control_rate = rospy.get_param("ros_rate/env_rate")
-    online_update_rate = rospy.get_param("ros_rate/online_update_rate")
+    lr_approx_e = online_learning_rate * params["controller/online_learning/weight_ratio"]
+    env = params["env/sim_or_real"]
+    env_dim = params["env/dimension"]
+    control_rate = params["ros_rate/env_rate"]
+    online_update_rate = params["ros_rate/online_update_rate"]
     
     # ------------------------------------------------------
     def __init__(self, num_hidden_unit=256):
@@ -116,11 +123,11 @@ class JacobianPredictor(object):
         self.online_optimizer = torch.optim.SGD([{'params': self.model_J.fc2.parameters()}], lr=1.0/self.online_update_rate)
         self.mse_criterion = torch.nn.MSELoss(reduction='sum')
 
-        if rospy.get_param("learning/is_test"):
-            self.nnWeightDir = self.projectDir + 'ws_dlo/src/dlo_manipulation_pkg/models_test/rbfWeights/' + self.env_dim + '/'
+        if self.params["learning/is_test"]:
+            self.nnWeightDir = self.projectDir + 'models_test/rbfWeights/' + self.env_dim + '/'
         else:
             self.nnWeightDir = self.projectDir + 'ws_dlo/src/dlo_manipulation_pkg/models/rbfWeights/' + self.env_dim + '/'
-        self.resultsDir = self.projectDir + 'results/' + self.env + '/'
+        # self.resultsDir = self.projectDir + 'results/' + self.env + '/'
         self.dataDir = self.projectDir +'data/'
 
         self.online_dataset = []
@@ -135,12 +142,15 @@ class JacobianPredictor(object):
         self.trainDataLoader = DataLoader(self.trainDataset, batch_size=512, shuffle=True, num_workers=4)
 
     # ------------------------------------------------------
-    def LoadDataForTest(self, test_dataset=None):
+    def LoadDataForTest(self, test_dataset=None, batch_size: int = None):
         # testset
         if test_dataset is None:
             test_dataset = np.load(self.dataDir + 'train_data/' + self.env_dim + '/state_0.npy').astype(np.float32)[600*0 : 600*2, :]
+        if batch_size is None:
+            batch_size = test_dataset.shape[0]
+        
         self.testDataset = NNDataset(test_dataset.astype(np.float32))
-        self.testDataLoader = DataLoader(self.testDataset, batch_size=test_dataset.shape[0], shuffle=False, num_workers=4)
+        self.testDataLoader = DataLoader(self.testDataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
 
     # ------------------------------------------------------
@@ -152,8 +162,8 @@ class JacobianPredictor(object):
             else:
                 print('Warning: no model exists !')
         else:
-            offline_model = rospy.get_param("controller/offline_model")
-            if rospy.get_param("learning/is_test"):
+            offline_model = self.params["controller/offline_model"]
+            if self.params["learning/is_test"]:
                 if os.path.exists(self.nnWeightDir  + "/model_J.pth"):
                     self.model_J.load_state_dict(torch.load(self.nnWeightDir + "/model_J.pth"))
                     # print('Load previous model.')
@@ -480,8 +490,9 @@ class JacobianPredictor(object):
 
 # --------------------------------------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    project_dir = rospy.get_param("project_dir")
-    env_dim = rospy.get_param("env/dimension")
+    params = load_config_params()
+    project_dir = params["project_dir"]
+    env_dim = params["env/dimension"]
 
     # training dataset (from 10 DLOs)
     train_dataset = np.empty((0, I.state_dim)).astype("float32")

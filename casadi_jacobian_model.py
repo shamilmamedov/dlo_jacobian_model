@@ -5,7 +5,7 @@ import casadi_rbf
 import casadi_nn
 
 class JacobianNetwork:
-    def __init_(
+    def __init__(
             self,
             n_feature_points: int,
             n_hidden_units: int
@@ -23,11 +23,13 @@ class JacobianNetwork:
         
         basis_fcn = casadi_rbf.gaussian
         self.rbf = casadi_rbf.RBF(lw[0], lw[1], basis_fcn)
-        self.linear = casadi_nn.Linear(lw[1], lw[2])
+        self.linear = casadi_nn.Linear(lw[1], lw[2], bias=False)
 
-    def __call__(self, x, rbf_centers, rbf_sigmas, lin_A, lin_b: None):
+    def __call__(self, x, rbf_centers, rbf_sigmas, lin_A, lin_b=None):
         theta = self.rbf(x, rbf_centers, rbf_sigmas)
         out = self.linear(theta, lin_A, lin_b)
+        # return out.reshape((3*self.n_fps, 12))
+        # out = out.reshape((3*12,))
         return out
 
 

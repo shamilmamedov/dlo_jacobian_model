@@ -1,5 +1,6 @@
 # for the whole system
-project_dir: '/home/mingrui/Mingrui/Research/DLO/project_journal_21/shape_control_DLO_2/'
+# project_dir: '/home/mingrui/Mingrui/Research/DLO/project_journal_21/shape_control_DLO_2/'
+project_dir: '/home/shamil/Desktop/projects/dlo-manipultion/code/dlo_jacobian_model/'
 
 # for environment
 env/sim_or_real: 'sim'
@@ -14,7 +15,7 @@ DLO/num_FPs: 10
 
 
 # for offline learning
-learning/is_test: false  # if using the controller, set it as false;
+learning/is_test: true  # if using the controller, set it as false;
 
 
 # for the controller

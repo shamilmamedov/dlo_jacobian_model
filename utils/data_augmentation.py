@@ -5,14 +5,16 @@ from torch._C import dtype
 import rospy
 from scipy.spatial.transform import Rotation as sciR
 
-try:
-    from utils.state_index import I
-except:
-    from state_index import I
+# try:
+from utils.state_index import I
+# except:
+#     from state_index import I
+from utils.config_params import load_config_params
 
 
-env_dim = rospy.get_param("env/dimension")
-num_fps = rospy.get_param("DLO/num_FPs")
+params = load_config_params()
+env_dim = params["env/dimension"]
+num_fps = params["DLO/num_FPs"]
 
 
 # --------------------------------------------------------------------------------

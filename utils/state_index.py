@@ -1,6 +1,7 @@
-import rospy
+from utils.config_params import load_config_params
 
-num_fps = rospy.get_param("DLO/num_FPs")
+params = load_config_params()
+num_fps = params["DLO/num_FPs"]
 
 
 class Index(object):
