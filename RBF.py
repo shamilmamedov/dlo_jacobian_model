@@ -63,7 +63,7 @@ class Net_J(nn.Module):
     def forward(self, x):
         theta = (self.fc1(x))
         output = (self.fc2(theta)) 
-        # output = torch.reshape(torch.reshape(output, (-1, self.nFPs, 12, 3)).transpose(2, 3), (-1, 3 * self.nFPs, 12)) # J: dimension: 30 * 12
+        output = torch.reshape(torch.reshape(output, (-1, self.nFPs, 12, 3)).transpose(2, 3), (-1, 3 * self.nFPs, 12)) # J: dimension: 30 * 12
         return output
 
     # use kmeans to calculate the initial value of mu and sigma in RBFN
