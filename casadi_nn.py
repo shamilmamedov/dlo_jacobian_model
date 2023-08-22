@@ -9,8 +9,8 @@ class Linear:
 
         self.linear_fcn = self._get_linear_fcn()
 
-    def _get_symbolic_expression(self):
-        x = cs.SX.sym('x', self.in_features, 1)
+    def _get_symbolic_expression(self, x: cs.SX = None):
+        if x is None: x = cs.SX.sym('x', self.in_features, 1)
         A = cs.SX.sym('A', self.out_features, self.in_features)
         out = A @ x
         

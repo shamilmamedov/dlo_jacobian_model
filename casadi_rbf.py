@@ -1,6 +1,8 @@
 import casadi as cs
 import numpy as np
 
+
+
 class RBF:
     # NOTE You can compute each output distances separately in parlllel
 
@@ -11,10 +13,10 @@ class RBF:
 
         self.rbf_fcn = self._get_rbf_fcn()
 
-    def _get_symbolic_rbf_expression(self):
+    def _get_symbolic_rbf_expression(self, x: cs.SX = None):
         centers = cs.SX.sym('c', self.out_features, self.in_features)
         inv_sigmas = cs.SX.sym('σ', self.out_features, 1)
-        x = cs.SX.sym('x', self.in_features, 1)
+        if x is None: x = cs.SX.sym('x', self.in_features, 1)
 
         dinstances = cs.SX.zeros(self.out_features,1)
         for i in range(self.out_features):

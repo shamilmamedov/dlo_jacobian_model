@@ -441,8 +441,9 @@ class JacobianPredictor(object):
         state_input = np.concatenate([fps_pos, ends_pose], axis=1).astype('float32') # one row matrix
         # np array to torch tensor
         state_input_torch = self.relativeStateRepresentationTorch(torch.tensor(state_input)).cuda()
-        ends_vel_torch = torch.reshape(torch.tensor(ends_vel.astype('float32')), (-1, 1, 12)).cuda()
-        length_torch = torch.tensor(length.astype('float32')).cuda()
+        ends_vel_torch = torch.reshape(ends_vel.clone().detach(), (-1, 1, 12)).cuda()
+        # length_torch = torch.tensor(length, dtype=torch.float32).cuda()
+        length_torch = length.clone().detach().cuda()
 
         # predict the feature velocities
         J_pred = self.model_J(state_input_torch)

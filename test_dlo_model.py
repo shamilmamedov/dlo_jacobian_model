@@ -3,36 +3,86 @@ import torch
 import casadi as cs
 
 from RBF import JacobianPredictor 
-import casadi_jacobian_model
+import casadi_dlo_model
 
 
 def test_JacobainNetwork():
+    # Instantiate Yu's jacobian predictor and load weights
+    jp = JacobianPredictor()
+    jp.LoadModelWeights()
+    rbf_centers = cs.DM(jp.model_J.fc1.centres.cpu().detach().numpy())
+    rbf_sigmas = cs.DM(jp.model_J.fc1.sigmas.cpu().detach().numpy())
+    lin_A = cs.DM(jp.model_J.fc2.weight.cpu().detach().numpy())
+
+    # Instantiate casadi implementation
+    n_feature_points = jp.model_J.nFPs
+    n_hidden_units = jp.model_J.numHidden
+    model_own = casadi_dlo_model.JacobianNetwork(
+        n_feature_points,
+        n_hidden_units
+    )
+    
+    # Load test data, iterate over it and compare model implementations
+    n_tests = 100
+    jp.LoadDataForTest(batch_size=1)
+    for k, (length, state_input, fps_vel, ends_vel) in zip(range(n_tests), jp.testDataLoader):
+        state_input_Yu = jp.relativeStateRepresentationTorch(state_input)
+        J_Yu = jp.model_J(state_input_Yu.cuda()).cpu().detach().numpy()
+        
+        state_input_cs = cs.DM(state_input.numpy().ravel())
+        J_own = model_own.compute_length_invariant_jacobian(
+            state_input_cs, rbf_centers, rbf_sigmas, lin_A
+        )
+
+        
+
+        np.testing.assert_array_almost_equal(
+            J_Yu.squeeze(),
+            np.array(J_own)
+        )
+
+
+def test_feature_points_velocity_predictions():
+    # Instantiate Yu's jacobian predictor and load weights
     jp = JacobianPredictor()
     jp.LoadModelWeights()
     rbf_centers = jp.model_J.fc1.centres.cpu().detach().numpy()
     rbf_sigmas = jp.model_J.fc1.sigmas.cpu().detach().numpy()
     lin_A = jp.model_J.fc2.weight.cpu().detach().numpy()
 
-
+    # Instantiate casadi implementation
     n_feature_points = jp.model_J.nFPs
     n_hidden_units = jp.model_J.numHidden
-    model_own = casadi_jacobian_model.JacobianNetwork(
+    model_own = casadi_dlo_model.JacobianNetwork(
         n_feature_points,
         n_hidden_units
     )
+    fps_vel_fcn = model_own.get_feature_points_velocity_fcn()
 
+    # Load test data, iterate over it and compare model implementations
     n_tests = 100
     jp.LoadDataForTest(batch_size=1)
     for k, (length, state_input, fps_vel, ends_vel) in zip(range(n_tests), jp.testDataLoader):
-        state_input_Yu = jp.relativeStateRepresentationTorch(state_input)
-        state_input_cs = cs.DM(state_input.numpy().ravel())
+        fps_pos = state_input[:, 0:3*n_feature_points]
+        ends_pose = state_input[:, 3*n_feature_points:3*n_feature_points +14]
+        v_fps_Yu = jp.predFPsVelocities(length, fps_pos, ends_pose, ends_vel)
 
-        J_Yu = jp.model_J(state_input_Yu.cuda()).cpu().detach().numpy()
-        J_own = model_own(state_input_cs, rbf_centers, rbf_sigmas, lin_A)
+        length_cs = float(length)
+        ends_vel_cs = cs.DM(ends_vel.numpy().ravel())
+        state_input_cs = cs.DM(state_input.numpy().ravel())
+        v_fps_own = model_own(state_input_cs, length_cs, rbf_centers, rbf_sigmas, lin_A) @ ends_vel_cs
+        
+        p_cs = cs.vertcat(length_cs, cs.vec(rbf_centers), rbf_sigmas, cs.vec(lin_A))
+        v_fps_own2 = fps_vel_fcn(state_input_cs, ends_vel_cs, p_cs)
 
         np.testing.assert_array_almost_equal(
-            J_Yu.squeeze(),
-            np.array(J_own)
+            v_fps_Yu.ravel(),
+            np.array(v_fps_own).ravel()
+        )
+
+        np.testing.assert_array_almost_equal(
+            v_fps_Yu.ravel(),
+            np.array(v_fps_own2).ravel()
         )
 
 
@@ -72,7 +122,7 @@ def test_relative_position_computation():
 
     n_feature_points = jp.model_J.nFPs
     n_hidden_units = jp.model_J.numHidden
-    model_own = casadi_jacobian_model.JacobianNetwork(
+    model_own = casadi_dlo_model.JacobianNetwork(
         n_feature_points,
         n_hidden_units
     )
@@ -93,6 +143,4 @@ def test_relative_position_computation():
 
 
 if __name__ == '__main__':
-    test_reshaping_jacobian()
-    test_relative_position_computation()
-    test_JacobainNetwork()
+    test_feature_points_velocity_predictions()
