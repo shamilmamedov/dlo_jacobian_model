@@ -34,8 +34,6 @@ def test_JacobainNetwork():
             state_input_cs, rbf_centers, rbf_sigmas, lin_A
         )
 
-        
-
         np.testing.assert_array_almost_equal(
             J_Yu.squeeze(),
             np.array(J_own)
@@ -141,6 +139,34 @@ def test_relative_position_computation():
         )
 
 
+# A unit test that tests the pose prediction of the robot's end-effectors
+# and compares it against calcNextEndsPose of the JacobianPredictor
+def test_end_effectors_pose_prediction():
+    q = np.random.uniform(-1, 1, size=(4,1))
+    q = q / np.linalg.norm(q)
+    p = np.random.uniform(-1, 1, size=(3,1))
+    pose = np.vstack((p,q))
+    vel = np.random.uniform(-1, 1, size=(6,1))
+    delta_t = 0.1
+
+    jp = JacobianPredictor()
+    
+    current_ends_pose = np.vstack((pose, pose))
+    ends_vel = np.vstack((vel, vel))
+
+    next_ends_pose = jp.calcNextEndsPose(current_ends_pose.T, ends_vel.T, delta_t)
+    print(f'Yu\'s next pos {next_ends_pose[0,:3]}')
+    print(f'Yu\'s next quat {next_ends_pose[0,3:7]}')
+
+    # Casadi implementation
+    rhs = casadi_dlo_model.end_effector_pose_dynamics(cs.DM(pose), cs.DM(vel))
+    next_pose = pose + delta_t * rhs
+    print(f'Own next pos {next_pose[:3].T}')
+    print(f'Own next quat {next_pose[3:7].T}')
+    print(f'Own quat norm {cs.norm_2(next_pose[3:7])}')
+
+
 
 if __name__ == '__main__':
-    test_feature_points_velocity_predictions()
+    test_end_effectors_pose_prediction()
+    # test_feature_points_velocity_predictions()

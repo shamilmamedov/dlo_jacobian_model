@@ -5,6 +5,7 @@ from typing import Union
 import casadi_rbf
 import casadi_nn
 
+
 class JacobianNetwork:
     def __init__(
             self,
@@ -101,15 +102,21 @@ class JacobianNetwork:
         return abs_poses, u, p, fps_vel
 
 
-def quaternion_derivative_jacobian_q(w):
-    out = type(w).zeros(3,4)
+class QuasiStaticDLOModel:
+    pass
+
+
+
+
+def quaternion_derivative_jacobian_wrt_q(w):
+    out = type(w).zeros(4,4)
     out[:3,:3] = -cs.skew(w)
     out[:3,3] = w
     out[3,:3] = -w.T
     return out
 
 
-def quaternion_derivative_jacobian_w(q):
+def quaternion_derivative_jacobian_wrt_w(q):
     x, y, z, w = cs.vertsplit_n(q,4)
     out = type(q).zeros(4,3)
     out[0,:] = [w, -z, y]
@@ -117,6 +124,28 @@ def quaternion_derivative_jacobian_w(q):
     out[2,:] = [-y, x, w]
     out[3,:] = [-x, -y, -z]
     return out
+
+
+def end_effector_pose_dynamics(pose: cs.DM, vel: cs.DM) -> cs.DM:
+    """
+    Compute the end-effector pose dynamics
+    """
+    # Parse the pose
+    pos = pose[0:3]
+    quat = pose[3:7]
+
+    # Parse the velocity
+    vel_lin = vel[0:3]
+    vel_ang = vel[3:6]
+
+    # Compute the pose derivative
+    quat_dot = 0.5 * quaternion_derivative_jacobian_wrt_q(vel_ang) @ quat
+    # quat_dot /= cs.norm_2(quat_dot)
+    pos_dot = vel_lin
+
+    # Return the pose derivative
+    return np.concatenate((pos_dot, quat_dot))
+    
 
 
 def main():
@@ -128,6 +157,8 @@ def main():
 
     A_expr = cs.jacobian(dx, z)
     print(A_expr.shape)
+
+
 
 if __name__ == '__main__':
     main()
