@@ -77,6 +77,12 @@ class JacobianNetwork:
         return dx
 
     def get_feature_points_velocities_expr(self):
+        """
+        "states" are the absolute positions and orientations of the end-effectors
+        "inputs" are the velocities of the end-effectors
+        "parameters" are the parameters of the RBF and linear layers
+
+        """
         # Symbolic variables for inputs
         n_fps = self.n_fps
         abs_poses = cs.SX.sym('abs_poses', (3*n_fps + 14, 1))
@@ -100,10 +106,22 @@ class JacobianNetwork:
 
         p = cs.vertcat(l, rbf_p, lin_p)
         return abs_poses, u, p, fps_vel
+    
+    def get_linearized_feature_points_velocity_expr(self):
+        pass
 
 
 class QuasiStaticDLOModel:
-    pass
+    """ Implements complete model of the DLO attached to the two end-effectors
+    the model states are: feature point positions, end-effector poses
+    the model inputs are: end-effector velocities
+    """
+    def __init__(
+            self,
+            n_feature_points: int,
+            n_hidden_units: int,
+    ) -> None:
+        self.fps_dyn = JacobianNetwork(n_feature_points, n_hidden_units)
 
 
 
