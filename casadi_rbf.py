@@ -2,46 +2,49 @@ import casadi as cs
 import numpy as np
 
 
-
 class RBF:
     # NOTE You can compute each output distances separately in parlllel
 
-    def __init__(self, in_features, out_features, basis_fcn):
-        self.in_features = in_features
-        self.out_features = out_features
+    def __init__(self, centers: cs.DM, inv_sigmas: cs.DM, basis_fcn):
+        self.centers = centers
+        self.inv_sigmas = inv_sigmas
         self.basis_func = basis_fcn
+        self.out_features, self.in_features = centers.size()
 
-        self.rbf_fcn = self._get_rbf_fcn()
+        # self.rbf_fcn = self._get_rbf_fcn()
 
     def _get_symbolic_rbf_expression(self, x: cs.SX = None):
-        centers = cs.SX.sym('c', self.out_features, self.in_features)
-        inv_sigmas = cs.SX.sym('σ', self.out_features, 1)
         if x is None: x = cs.SX.sym('x', self.in_features, 1)
 
-        dinstances = cs.SX.zeros(self.out_features,1)
-        for i in range(self.out_features):
-            dinstances[i] = cs.norm_2(x - centers[i,:].T)
+        # Initialize an array to store the distances
+        dinstances = [cs.norm_2(x - self.centers[i, :].T) 
+                      for i in range(self.out_features)]
 
-        scaled_distances = dinstances * inv_sigmas
+        # Create a column vector of distances
+        distances = cs.vertcat(*dinstances)
+
+        scaled_distances = distances * self.inv_sigmas
         rbf_expr = self.basis_func(scaled_distances)
-
-        p = cs.vertcat(cs.vec(centers), inv_sigmas)
-        return x, p, rbf_expr
+        return x, rbf_expr
     
     def _get_rbf_fcn(self):
-        x, p, rbf = self._get_symbolic_rbf_expression()
-        rbf_fcn = cs.Function('rbf', [x, p], [rbf])
+        x, rbf = self._get_symbolic_rbf_expression()
+        rbf_fcn = cs.Function('rbf', [x], [rbf])
+        # rbf_fcn = cs.Function('rbf', [x], [rbf], {'jit': True})
         return rbf_fcn
     
-    def __call__(self, x, centers, inv_sigmas):
-        if isinstance(centers, np.ndarray):
-            centers = cs.DM(centers)
+    def __call__(self, x):
+        # return self.rbf_fcn(x)
+        # Initialize an array to store the distances
+        dinstances = [cs.norm_2(x.reshape((-1, 1)) - self.centers[i, :].T) 
+                      for i in range(self.out_features)]
 
-        if isinstance(inv_sigmas, np.ndarray):
-            inv_sigmas = cs.DM(inv_sigmas)
+        # Create a column vector of distances
+        distances = cs.vertcat(*dinstances)
 
-        p = cs.vertcat(cs.vec(centers), inv_sigmas)
-        return self.rbf_fcn(x, p)
+        scaled_distances = distances * self.inv_sigmas
+        rbf = self.basis_func(scaled_distances)
+        return rbf
 
 
 def gaussian(alpha):
