@@ -3,6 +3,7 @@ import numpy as np
 from typing import Union
 from dataclasses import dataclass
 
+from RBF import JacobianPredictor 
 import casadi_rbf
 import casadi_nn
 
@@ -15,7 +16,8 @@ class JacobianNetwork:
             rbf_centers: cs.DM,
             rbf_sigmas: cs.DM,
             lin_A: cs.DM,
-            lin_b: cs.DM = None
+            lin_b: cs.DM = None,
+            jit: bool = True
     ):
         """
         NOTE the input is relative positions and orientation; thus,
@@ -135,6 +137,7 @@ class DualArmDLOModel:
     ) -> None:
         self.dlo_model = dlo_model
         self.dlo_length = dlo_length
+        self.n_fps = self.dlo_model.n_fps
         self.nx = 3*self.dlo_model.n_fps + 14
         self.nu = 12
 
@@ -142,8 +145,8 @@ class DualArmDLOModel:
         self._setup_dynamics_fcn = self._get_setup_dynamics_fcn()
 
     def _get_dual_arm_dynamics_expr(self):
-        poses = cs.SX.sym('poses', 14, 1)
-        vels = cs.SX.sym('vels', 12, 1)
+        poses = cs.MX.sym('poses', 14, 1)
+        vels = cs.MX.sym('vels', 12, 1)
 
         # Compute the end-effector pose dynamics
         arm1 = end_effector_pose_dynamics(poses[0:7], vels[0:6])
@@ -153,7 +156,7 @@ class DualArmDLOModel:
 
     def _get_setup_dynamics_expr(self):
         poses, vels, poses_dot = self._get_dual_arm_dynamics_expr()
-        dlo_pos = cs.SX.sym('x', (3*self.dlo_model.n_fps, 1)) 
+        dlo_pos = cs.MX.sym('x', (3*self.dlo_model.n_fps, 1)) 
 
         # state
         x_abs = cs.vertcat(dlo_pos, poses)
@@ -167,12 +170,26 @@ class DualArmDLOModel:
         return x_abs, vels, x_dot
     
     def _get_setup_dynamics_fcn(self):
-        x_abs, vels, x_dot = self._get_setup_dynamics_expr()
-        dx = cs.Function('dx', [x_abs, vels], [x_dot])
-        return dx
+        z, u, z_dot = self._get_setup_dynamics_expr()
+        dz = cs.Function('dz', [z, u], [z_dot])
+        return dz
     
     def __call__(self, x, u):
         return self._setup_dynamics_fcn(x, u)
+    
+    def _get_linearized_setup_dynamics_expr(self):
+        z, u, x_dot = self._get_setup_dynamics_expr()
+        A = cs.jacobian(x_dot, z)
+        B = cs.jacobian(x_dot, u)
+        return z, u, A, B
+    
+    def _get_linearized_setup_dynamics_fcns(self, jit: bool = False):
+        opts = {'jit': True, 'compiler': 'shell', 'verbose': True} if jit else {}
+
+        z, u, A, B = self._get_linearized_setup_dynamics_expr()
+        A_fcn = cs.Function('A', [z, u], [A], opts)
+        B_fcn = cs.Function('B', [z, u], [B], opts)
+        return A_fcn, B_fcn
 
 
 def quaternion_derivative_jacobian_wrt_q(w):
@@ -214,18 +231,20 @@ def end_effector_pose_dynamics(pose: cs.DM, vel: cs.DM) -> cs.DM:
     return cs.vertcat(pos_dot, quat_dot)
     
 
+def load_model_parameters():
+    # Instantiate Yu's jacobian predictor and load weights
+    jp = JacobianPredictor()
+    jp.LoadModelWeights()
+    rbf_centers = cs.DM(jp.model_J.fc1.centres.cpu().detach().numpy())
+    rbf_sigmas = cs.DM(jp.model_J.fc1.sigmas.cpu().detach().numpy())
+    lin_A = cs.DM(jp.model_J.fc2.weight.cpu().detach().numpy())
 
-def main():
-    n_feature_points = 10
-    n_hidden_units = 256
-    m = JacobianNetwork(n_feature_points, n_hidden_units)
+    # Instantiate casadi implementation
+    n_feature_points = jp.model_J.nFPs
+    n_hidden_units = jp.model_J.numHidden
 
-    z, u, p, dx = m.get_feature_points_velocities_expr()
-
-    A_expr = cs.jacobian(dx, z)
-    print(A_expr.shape)
-
-
-
-if __name__ == '__main__':
-    main()
+    return {'n_feature_points': n_feature_points,
+            'n_hidden_units': n_hidden_units,
+            'rbf_centers': rbf_centers,
+            'rbf_sigmas': rbf_sigmas,
+            'lin_A': lin_A}

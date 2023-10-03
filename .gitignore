@@ -1,5 +1,10 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+utils/__pycache__/
 
 # Unit test / coverage reports
 .pytest_cache/
+
+*.c
+*.json
+c_generated_code_dlo/

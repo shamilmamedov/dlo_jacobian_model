@@ -11,9 +11,10 @@ class Linear:
         self.bias = bias
         self.in_features = in_f
         self.out_features = out_f
-        # self.linear_fcn = self._get_linear_fcn()
 
-    def _get_symbolic_expression(self, x: cs.SX = None):
+        self.linear_fcn = self._get_linear_fcn()
+
+    def _get_symbolic_expr(self, x: cs.SX = None):
         if x is None: x = cs.SX.sym('x', self.in_features, 1)
         out = self.W @ x
         
@@ -22,15 +23,16 @@ class Linear:
         return x, out 
 
     def _get_linear_fcn(self):
-        x, out = self._get_symbolic_expression()
-        # linear_fcn = cs.Function('linear', [x], [out])
+        x, out = self._get_symbolic_expr()
         linear_fcn = cs.Function('linear', [x], [out])
         return linear_fcn
     
+    def _get_custom_jacobian_fcn(self):
+        x = cs.MX.sym('x', self.in_features, 1)
+        dummy = cs.MX.sym('dummy', self.out_features, 1)
+        jac_f = cs.Function('jac_f', [x, dummy], [self.W], 
+                            ['x', 'dummy'], ['jac_f_x'])
+        return jac_f
+
     def __call__(self, x):
-        # return self.linear_fcn(x)
-        out = self.W @ x.reshape((-1, 1))
-        
-        if self.bias is not None:
-            out = out + self.b
-        return out
+        return self.linear_fcn(x)
