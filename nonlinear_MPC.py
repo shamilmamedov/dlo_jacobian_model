@@ -33,7 +33,7 @@ class NMPC:
         self.acados_ocp_solver = self._setup_acados_ocp_solver(acados_ocp)
 
     def _construct_acados_model(self) -> AcadosModel:
-        xdot = cs.SX.sym('xdot', self.model.nx, 1)
+        xdot = cs.MX.sym('xdot', self.model.nx, 1)
         x, u, rhs = self.model._get_setup_dynamics_expr()
 
         acados_model = AcadosModel()

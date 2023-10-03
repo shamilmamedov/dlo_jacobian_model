@@ -3,49 +3,60 @@ import time
 import numpy as np
 
 import casadi_nn
+import casadi_rbf
 
 
-def linear_fcn(W, x):
-    return W @ x
+def time_execution(fcn, args, n_iter=1000, fcn_name=''):
+    avg_time = []
+    for k in range(n_iter):
+        start = time.time()
+        fcn(args)
+        end = time.time()
+        avg_time.append((end-start))
+    print(f'Average {fcn_name} evaluation time: {1000*np.mean(avg_time):.3f}ms')
 
 
 def test_nn_custom_jacobian():
-
+    print('Testing linear layer')
     W = cs.DM.rand(256, 256)
     x = cs.MX.sym('x', 256, 1)
-    p_dummy = cs.MX.sym('p_dummy', 256, 1)
-    f_expr = casadi_nn.Linear(W)(x)
+    model = casadi_nn.Linear(W)
+
+    f_expr = model(x)
+    jac_autodiff = cs.Function("jac_autodiff", [x], [cs.jacobian(f_expr, x)])
+    print(jac_autodiff.n_instructions())
+
+    jac_custom = cs.Function('JJ', [x], [model.linear_fcn.jacobian()(x, x)])
+    print(jac_custom.n_instructions())
+
+    n_iter = 1000
+    x = cs.DM.rand(256, 1)
+    time_execution(jac_autodiff, x, n_iter, fcn_name='autodiff')
+    time_execution(jac_custom, x, n_iter, fcn_name='custom')
+
+
+def test_gaussian():
+    print('\nTesting gaussian')
+    x = cs.MX.sym('x')
+    f_expr = casadi_rbf.gaussian(x)
 
     jac_autodiff = cs.Function("jac_autodiff", [x], [cs.jacobian(f_expr, x)])
     print(jac_autodiff.n_instructions())
 
-    custom_jacobian = cs.Function("jac_f", [x, p_dummy], [W], ['x', 'dummy'], ['jac_f_x'])
-    print(custom_jacobian.n_instructions())
-    f = cs.Function("f", [x], [f_expr], ['x'], ['f'],
-                    dict(custom_jacobian = custom_jacobian, jac_penalty = 0, always_inline=False, never_inline=True))
-
-    jac_custom = cs.Function('JJ', [x], [f.jacobian()(x, x)])
+    jac_custom = cs.Function('jac_custom', [x], [casadi_rbf.gaussian_jacobian(x)])
     print(jac_custom.n_instructions())
 
-    x = cs.DM.rand(256, 1)
-    avg_time = []
-    n_iter = 1000
-    for k in range(n_iter):
-        start = time.time()
-        jac_autodiff(x)
-        end = time.time()
-        avg_time.append((end-start))
-    print(f'Average autodiff time: {1000*np.mean(avg_time):.3f}ms')
+    # for _ in range(10):
+    #     x = cs.DM.rand()
+    #     assert jac_autodiff(x) == jac_custom(x)
 
-    avg_time = []
     n_iter = 1000
-    for k in range(n_iter):
-        start = time.time()
-        jac_custom(x)
-        end = time.time()
-        avg_time.append((end-start))
-    print(f'Average custom time: {1000*np.mean(avg_time):.3f}ms')
+    x = cs.DM.rand(256,1)
+    time_execution(jac_autodiff, x, n_iter, fcn_name='autodiff')
+    time_execution(jac_custom, x, n_iter, fcn_name='custom')
+    
 
 
 if __name__ == '__main__':
     test_nn_custom_jacobian()
+    test_gaussian()

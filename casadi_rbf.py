@@ -11,10 +11,10 @@ class RBF:
         self.basis_func = basis_fcn
         self.out_features, self.in_features = centers.size()
 
-        # self.rbf_fcn = self._get_rbf_fcn()
+        self.rbf_fcn = self._get_rbf_fcn()
 
-    def _get_symbolic_rbf_expression(self, x: cs.SX = None):
-        if x is None: x = cs.SX.sym('x', self.in_features, 1)
+    def _get_symbolic_rbf_expression(self, x: cs.MX = None):
+        if x is None: x = cs.MX.sym('x', self.in_features, 1)
 
         # Initialize an array to store the distances
         dinstances = [cs.norm_2(x - self.centers[i, :].T) 
@@ -34,22 +34,29 @@ class RBF:
         return rbf_fcn
     
     def __call__(self, x):
-        # return self.rbf_fcn(x)
-        # Initialize an array to store the distances
-        dinstances = [cs.norm_2(x.reshape((-1, 1)) - self.centers[i, :].T) 
-                      for i in range(self.out_features)]
+        return self.rbf_fcn(x)
+        # # Initialize an array to store the distances
+        # dinstances = [cs.norm_2(x.reshape((-1, 1)) - self.centers[i, :].T) 
+        #               for i in range(self.out_features)]
 
-        # Create a column vector of distances
-        distances = cs.vertcat(*dinstances)
+        # # Create a column vector of distances
+        # distances = cs.vertcat(*dinstances)
 
-        scaled_distances = distances * self.inv_sigmas
-        rbf = self.basis_func(scaled_distances)
-        return rbf
+        # scaled_distances = distances * self.inv_sigmas
+        # rbf = self.basis_func(scaled_distances)
+        # return rbf
 
 
 def gaussian(alpha):
     phi = cs.exp(-1*cs.power(alpha, 2))
     return phi
+
+
+def gaussian_jacobian(alpha):
+    phi = cs.exp(-1*cs.power(alpha, 2))
+    dphi = -2*alpha*phi
+    return dphi
+
 
 
 if __name__ == '__main__':

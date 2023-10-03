@@ -28,10 +28,10 @@ def measure_avg_JacobainNetwork_evaluation():
             )
         end = time.time()
         avg_time.append((end-start)/1000)
-        print(f'Jacobian evaluation took {(end-start)/1000} seconds')
+        # print(f'Jacobian evaluation took {(end-start)/1000} seconds')
 
     print(f'Average Jacobian evaluation time: {1000*np.mean(avg_time):.3f}ms')
-    print(f'Max Jacobian evaluation time: {1000*np.max(avg_time):.3f}ms')
+    print(f'Max Jacobian evaluation time: {1000*np.max(avg_time):.3f}ms\n')
 
 
 def measure_avg_setup_model_evaluation():
@@ -56,10 +56,10 @@ def measure_avg_setup_model_evaluation():
             J_own = setup_model(state_input_cs, ends_vel_cs)
         end = time.time()
         avg_time.append((end-start)/1000)
-        print(f'Setup dynamics evaluation took {(end-start)/1000} seconds')
+        # print(f'Setup dynamics evaluation took {(end-start)/1000} seconds')
 
     print(f'Average setup dynamics evaluation time: {1000*np.mean(avg_time):.3f}ms')
-    print(f'Max setup dynamics evaluation time: {1000*np.max(avg_time):.3f}ms')
+    print(f'Max setup dynamics evaluation time: {1000*np.max(avg_time):.3f}ms\n')
 
 
 def measure_avg_linearized_setup__dynamics_evaluation():
@@ -74,7 +74,7 @@ def measure_avg_linearized_setup__dynamics_evaluation():
     # Load test data, iterate over it and compare model implementations
     avg_time_A = []
     avg_time_B = []
-    n_tests = 25
+    n_tests = 5
     jp = JacobianPredictor()
     jp.LoadDataForTest(batch_size=1)
     for k, (length, state_input, fps_vel, ends_vel) in zip(range(n_tests), jp.testDataLoader):
@@ -85,14 +85,14 @@ def measure_avg_linearized_setup__dynamics_evaluation():
             J_own = A_fcn(state_input_cs, ends_vel_cs)
         end = time.time()
         avg_time_A.append((end-start)/1000)
-        print(f'A matrix evalution time took {avg_time_A[-1]} seconds')
+        print(f'A matrix evalution time took {1000*avg_time_A[-1]:.3f} ms')
 
         start = time.time()
         for k in range(1000):
             J_own = B_fcn(state_input_cs, ends_vel_cs)
         end = time.time()
         avg_time_B.append((end-start)/1000)
-        print(f'B matrix evalution time took {avg_time_B[-1]} seconds')
+        print(f'B matrix evalution time took {1000*avg_time_B[-1]:.3f} ms')
 
     print(f'Average A matrix evaluation time: {1000*np.mean(avg_time_A):.3f}ms')
     print(f'Max A matrix evaluation time: {1000*np.max(avg_time_A):.3f}ms')
@@ -101,6 +101,6 @@ def measure_avg_linearized_setup__dynamics_evaluation():
 
 
 if __name__ == '__main__':
-    # measure_avg_JacobainNetwork_evaluation()
-    # measure_avg_setup_model_evaluation()
+    measure_avg_JacobainNetwork_evaluation()
+    measure_avg_setup_model_evaluation()
     measure_avg_linearized_setup__dynamics_evaluation()

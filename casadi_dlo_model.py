@@ -38,9 +38,9 @@ class JacobianNetwork:
         self.linear = casadi_nn.Linear(lin_A, lin_b)
 
         self._length_invariant_jacobian_fcn = self._get_length_invariant_jacobian_fcn()
-   
+
     def _get_length_invariant_jacobian_expr(self):
-        x_abs = cs.SX.sym('x', (3*self.n_fps + 14, 1))
+        x_abs = cs.MX.sym('x', (3*self.n_fps + 14, 1))
         x_rel = self._compute_relative_positions(x_abs)
         theta = self.rbf(x_rel)
         out =  self.linear(theta)
@@ -65,7 +65,7 @@ class JacobianNetwork:
         fps_pos_rel = type(abs_pos).zeros(fps_pos.shape)
         fps_pos_rel[:,1:] = cs.diff(fps_pos, 1, 1)
         for fp in range(1,n_fps):
-            norm_ = cs.norm_2(fps_pos_rel[:,fp])
+            norm_ = cs.norm_2(fps_pos_rel[:,fp]) 
             fps_pos_rel[:,fp] /= norm_
         fps_pos_rel = fps_pos_rel.reshape((-1,1))
 
@@ -184,7 +184,10 @@ class DualArmDLOModel:
         return z, u, A, B
     
     def _get_linearized_setup_dynamics_fcns(self, jit: bool = False):
-        opts = {'jit': True, 'compiler': 'shell', 'verbose': True} if jit else {}
+        opts = {}
+        if jit:
+            opts = {'jit': True, 'compiler': 'shell', 'verbose': True,
+                    'jit_options': {'flags': '-O3'}} 
 
         z, u, A, B = self._get_linearized_setup_dynamics_expr()
         A_fcn = cs.Function('A', [z, u], [A], opts)
