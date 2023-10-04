@@ -90,7 +90,7 @@ class TestLinearizedMPC:
         model = self._create_model()
         lmpc = LinearizedMPC(model, self.lmpc_opts)
 
-        u = lmpc(z, ees_vel, goal_pos) 
+        u = lmpc._solve(z, ees_vel, goal_pos) 
         u_lin_l = u[:,:3]
         u_ang_l = u[:,3:6]
         u_lin_r = u[:,6:9]
@@ -138,5 +138,6 @@ class TestLinearizedMPC:
 if __name__ == '__main__':
     t = TestLinearizedMPC()
     t.test_task_completion()
+    # t.test_solve()
 
 
