@@ -66,12 +66,12 @@ class JacobianNetwork:
         fps_pos_rel[:,1:] = cs.diff(fps_pos, 1, 1)
         for fp in range(1,n_fps):
             norm_ = cs.norm_2(fps_pos_rel[:,fp]) 
-            fps_pos_rel[:,fp] /= norm_
+            fps_pos_rel[:,fp] /= (norm_ + 1e-6)
         fps_pos_rel = fps_pos_rel.reshape((-1,1))
 
         # Compute relative positions of the robot end effectors
         right_end_pos_rel = (right_end_pos - left_end_pos) 
-        right_end_pos_rel /= cs.norm_2(right_end_pos_rel)
+        right_end_pos_rel /= (cs.norm_2(right_end_pos_rel) + 1e-6)
         c_rel = cs.vertcat(fps_pos_rel, right_end_pos_rel, left_end_quat, right_end_quat)
         return c_rel
     
@@ -113,11 +113,11 @@ class JacobianNetwork:
         x_abs, J = self._get_length_invariant_jacobian_expr()
         
         # The infuluence of length on the jacobian
-        l = cs.SX.sym('l')
+        l = cs.MX.sym('l')
         J[:, [3, 4, 5, 9, 10, 11]] *= l
 
         # Compute fps velocities
-        u = cs.SX.sym('u', (12,1))
+        u = cs.MX.sym('u', (12,1))
         fps_vel = J @ u
 
         # Parametes

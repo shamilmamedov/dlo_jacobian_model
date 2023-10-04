@@ -13,6 +13,7 @@ class NMPCOptions:
     N: int # prediction horizon
     u_max: np.ndarray
     u_min: np.ndarray
+    build_ocp_solver: bool = True
 
     def __post_init__(self):
         self.tf = self.dt * self.N
@@ -105,16 +106,24 @@ class NMPC:
         
         acados_ocp.code_export_directory = mkdtemp()
         acados_ocp.code_export_directory = 'c_generated_code_dlo'
-        self.acados_ocp_solver = AcadosOcpSolver(acados_ocp, json_file='acados_ocp_dlo.json')
+        acados_ocp_solver = AcadosOcpSolver(
+            acados_ocp, 
+            json_file='acados_ocp_dlo.json',
+            build=self.options.build_ocp_solver,
+            generate=self.options.build_ocp_solver,
+        )
         # AcadosOcpSolver.generate(acados_ocp, json_file='acados_ocp_dlo.json')
         # AcadosOcpSolver.build(acados_ocp.code_export_directory, with_cython=True)
-        # self.acados_ocp_solver = AcadosOcpSolver.create_cython_solver('acados_ocp_dlo.json')
+        # self.acados_ocp_solver = AcadosOcpSolver.create_cython_solver('acados_ocp_dlo.json')]
+        # , build=False, generate=False
+        return acados_ocp_solver
 
     def set_reference(self, desired_p_fps, current_poses):
         x_ref = np.concatenate((desired_p_fps, current_poses))
-        u_ref = np.zeros((self.model.nu))
+        u_ref = np.zeros((self.model.nu,))
         y_ref = np.concatenate((x_ref, u_ref))
-
+        
+        breakpoint()
         for stage in range(self.options.N):
             self.acados_ocp_solver.cost_set(stage, 'yref', y_ref)
 
@@ -124,11 +133,11 @@ class NMPC:
     def __call__(self, x):
         self.acados_ocp_solver.set(0, 'lbx', x)
         self.acados_ocp_solver.set(0, 'ubx', x)
-
         status = self.acados_ocp_solver.solve()
         if status != 0:
             print("acados returned status {} in time step {}".format(status, self.iter_counter))
 
+        breakpoint()
         self.iter_counter += 1
         if status == 0:
             return self.acados_ocp_solver.get(0, 'u')

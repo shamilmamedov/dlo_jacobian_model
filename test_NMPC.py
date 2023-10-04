@@ -1,9 +1,12 @@
 import numpy as np
 import torch
+import pytest
+
 
 from RBF import JacobianPredictor 
 import nonlinear_MPC
 import casadi_dlo_model
+from utils.data import load_simulation_trajectory
 
 class DLOEnv:
     def __init__(self, dt: float = 0.1, length: float = 0.5) -> None:
@@ -22,21 +25,13 @@ class DLOEnv:
 
     def reset(self):
         n_traj = 0
-        data = self._load_simulation_trajectory(n_traj)
+        data = load_simulation_trajectory(n_traj)
 
         self.goal_pos = torch.tensor(data[[1], 87:117])
         self.fps_pos = torch.tensor(data[[1], 1:31])
         self.fps_vel = torch.tensor(data[[1], 45:75])
         self.ees_pose = torch.tensor(data[[1], 31:45])
 
-    def _load_simulation_trajectory(self, n_traj):
-        data_dir = '../../dataset/sim_data/'
-        traj_name = f'state_{n_traj}.npy'
-        filepath = data_dir + traj_name
-        
-        data = np.load(filepath)
-        return data
-    
     def step(self, action):
         action = torch.tensor(action, dtype=torch.float32).unsqueeze(0)
         self.ees_pose = self.jp.calcNextEndsPose(
@@ -55,20 +50,50 @@ class DLOEnv:
         return self.fps_pos_history, self.ees_pose_history
 
 
-def test_instantiation():
+
+
+class TestNMPC:
     nmpcs_options = nonlinear_MPC.NMPCOptions(
         dt=0.1,
         N=10,
         u_max=np.ones((12,)),
         u_min=-np.ones((12,)),
     )
+    
+    def _create_model(self):
+        dlo_model_parms = casadi_dlo_model.load_model_parameters()
+        dlo_model = casadi_dlo_model.JacobianNetwork(**dlo_model_parms)
+        dlo_length = 0.5
+        setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
+        return setup_model
 
-    dlo_model_parms = casadi_dlo_model.load_model_parameters()
-    dlo_model = casadi_dlo_model.JacobianNetwork(**dlo_model_parms)
-    dlo_length = 0.5
-    setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
+    def test_instantiation(self):
+        setup_model = self._create_model()
+        nmpc = nonlinear_MPC.NMPC(setup_model, self.nmpcs_options)
 
-    nmpc = nonlinear_MPC.NMPC(setup_model, nmpcs_options)
+        assert nmpc.iter_counter == 0
+        assert nmpc.options.dt == 0.1
+        assert nmpc.options.N == 10
+        assert nmpc.options.tf == 1.0
+
+    def test_solve(self):
+        n_traj = 0
+        data = load_simulation_trajectory(n_traj)
+        fps_pos = torch.tensor(data[[1], 1:31]).numpy().ravel()
+        ees_pose = torch.tensor(data[[1], 31:45]).numpy().ravel()
+        goal_pos = torch.tensor(data[[1], 87:117]).numpy().ravel()
+
+        z = np.concatenate((fps_pos, ees_pose))
+        z_ref = np.hstack((goal_pos, ees_pose)).T
+
+        setup_model = self._create_model()
+        # self.nmpcs_options.build_ocp_solver = False
+        nmpc = nonlinear_MPC.NMPC(setup_model, self.nmpcs_options)
+        nmpc.set_reference(goal_pos, ees_pose)
+        nmpc(z)   
+        breakpoint()
+        print('AAAA')
+
 
 
 if __name__ == '__main__':
@@ -77,5 +102,7 @@ if __name__ == '__main__':
     # env.step(np.zeros(12))
     # print(env.ees_pose)
     # print(env.fps_pos)
-    test_instantiation()
+    # test_instantiation()
 
+    t = TestNMPC()
+    t.test_solve()
