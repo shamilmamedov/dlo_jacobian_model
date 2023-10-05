@@ -27,7 +27,7 @@ class DLOEnv:
         self.ees_pose_history = []
 
     def reset(self):
-        n_traj = 0
+        n_traj = 3
         data = load_simulation_trajectory(n_traj)
 
         self.goal_pos = torch.tensor(data[[1], 87:117])
@@ -68,14 +68,16 @@ class TestLinearizedMPC:
     lmpc_opts = RuansMPCOptions(
         dt=0.1,
         N=10,
-        u_max=np.ones((12,)),
-        u_min=-np.ones((12,)),
+        u_max=cs.DM.ones(12),
+        u_min=-cs.DM.ones(12),
     )
 
     def _create_model(self):
         dlo_model_parms = casadi_dlo_model.load_model_parameters()
         dlo_model = casadi_dlo_model.JacobianNetwork(**dlo_model_parms)
-        return dlo_model
+        dlo_length = 0.5
+        setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
+        return setup_model
 
     def test_closed_loop(self):
         model = self._create_model()

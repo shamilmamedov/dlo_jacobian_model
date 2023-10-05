@@ -24,6 +24,7 @@ class DLOEnv:
 
         self.fps_pos_history = []
         self.ees_pose_history = []
+        self.action_history = []
 
     def reset(self):
         n_traj = 0
@@ -121,11 +122,43 @@ class TestLinearizedMPC:
         lmpc = LinearizedMPC(model, self.lmpc_opts)
 
         env = DLOEnv()
+        U = []
         z, fps_pos_des = env.reset()
+        fps_pos_cur = np.copy(z[:30])
+        fps_pos_des = fps_pos_cur
+        fps_pos_des[2::3] += 0.1
         u = np.zeros((model.nu,))
-        for k in range(25):
+        for k in range(100):
             u = lmpc(z, u, fps_pos_des)
+            U.append(u)
             z = env.step(u)
+
+        U = np.vstack(U)
+        u_lin_l = U[:,:3]
+        u_ang_l = U[:,3:6]
+        u_lin_r = U[:,6:9]
+        u_ang_r = U[:,9:12]
+        t = np.arange(0, U.shape[0])*self.lmpc_opts.dt
+
+        _, axs = plt.subplots(3,1, sharex=True)
+        axs[0].plot(t, u_lin_l[:,0])
+        axs[0].plot(t, u_lin_r[:,0])
+        axs[1].plot(t, u_lin_l[:,1])
+        axs[1].plot(t, u_lin_r[:,1])
+        axs[2].plot(t, u_lin_l[:,2])
+        axs[2].plot(t, u_lin_r[:,2])
+        plt.tight_layout()
+
+        _, axs = plt.subplots(3,1, sharex=True)
+        axs[0].plot(t, u_ang_l[:,0])
+        axs[0].plot(t, u_ang_r[:,0])
+        axs[1].plot(t, u_ang_l[:,1])
+        axs[1].plot(t, u_ang_r[:,1])
+        axs[2].plot(t, u_ang_l[:,2])
+        axs[2].plot(t, u_ang_r[:,2])
+        plt.tight_layout()
+        plt.show()
+
 
         fps_pos = np.concatenate(env.fps_pos_history, axis=0)
         fps_pos_des = np.tile(fps_pos_des, (fps_pos.shape[0], 1))
