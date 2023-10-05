@@ -1,14 +1,15 @@
-import numpy as np
 import casadi as cs
 import matplotlib.pyplot as plt
 import torch
 import copy
+import numpy as np
 
 from utils.data import load_simulation_trajectory
 import casadi_dlo_model
-from linearized_MPC import LinearizedMPC, LinearizedMPCOptions
+from ruans_MPC import RuansMPC, RuansMPCOptions
 from RBF import JacobianPredictor
 import visualization
+
 
 class DLOEnv:
     def __init__(self, dt: float = 0.1, length: float = 0.5) -> None:
@@ -64,7 +65,7 @@ class DLOEnv:
 
 
 class TestLinearizedMPC:
-    lmpc_opts = LinearizedMPCOptions(
+    lmpc_opts = RuansMPCOptions(
         dt=0.1,
         N=10,
         u_max=np.ones((12,)),
@@ -74,57 +75,16 @@ class TestLinearizedMPC:
     def _create_model(self):
         dlo_model_parms = casadi_dlo_model.load_model_parameters()
         dlo_model = casadi_dlo_model.JacobianNetwork(**dlo_model_parms)
-        dlo_length = 0.5
-        setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
-        return setup_model
+        return dlo_model
 
-    def test_solve(self):
-        n_traj = 0
-        data = load_simulation_trajectory(n_traj)
-        fps_pos = data[1, 1:31]
-        ees_pose = data[1, 31:45]
-        ees_vel = data[1, 75:87]
-        goal_pos = data[1, 87:117]
-        z = np.concatenate((fps_pos, ees_pose))
-
+    def test_closed_loop(self):
         model = self._create_model()
-        lmpc = LinearizedMPC(model, self.lmpc_opts)
-
-        u = lmpc._solve(z, ees_vel, goal_pos) 
-        u_lin_l = u[:,:3]
-        u_ang_l = u[:,3:6]
-        u_lin_r = u[:,6:9]
-        u_ang_r = u[:,9:12]
-        t = np.arange(0, self.lmpc_opts.N)*self.lmpc_opts.dt
-
-        _, axs = plt.subplots(3,1, sharex=True)
-        axs[0].plot(t, u_lin_l[:,0])
-        axs[0].plot(t, u_lin_r[:,0])
-        axs[1].plot(t, u_lin_l[:,1])
-        axs[1].plot(t, u_lin_r[:,1])
-        axs[2].plot(t, u_lin_l[:,2])
-        axs[2].plot(t, u_lin_r[:,2])
-        plt.tight_layout()
-
-        _, axs = plt.subplots(3,1, sharex=True)
-        axs[0].plot(t, u_ang_l[:,0])
-        axs[0].plot(t, u_ang_r[:,0])
-        axs[1].plot(t, u_ang_l[:,1])
-        axs[1].plot(t, u_ang_r[:,1])
-        axs[2].plot(t, u_ang_l[:,2])
-        axs[2].plot(t, u_ang_r[:,2])
-        plt.tight_layout()
-        plt.show()
-
-    def test_task_completion(self):
-        model = self._create_model()
-        lmpc = LinearizedMPC(model, self.lmpc_opts)
+        rmpc = RuansMPC(model, self.lmpc_opts)
 
         env = DLOEnv()
         z, fps_pos_des = env.reset()
-        u = np.zeros((model.nu,))
-        for k in range(25):
-            u = lmpc(z, u, fps_pos_des)
+        for k in range(40):
+            u = rmpc(z, fps_pos_des)
             z = env.step(u)
 
         fps_pos = np.concatenate(env.fps_pos_history, axis=0)
@@ -137,7 +97,4 @@ class TestLinearizedMPC:
 
 if __name__ == '__main__':
     t = TestLinearizedMPC()
-    t.test_task_completion()
-    # t.test_solve()
-
-
+    t.test_closed_loop()

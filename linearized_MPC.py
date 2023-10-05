@@ -46,7 +46,11 @@ class LinearizedMPC:
         # Objective function
         obj = 0
         for i in range(self.horizon):
-            obj += cs.sumsqr(x_des - x[:3*self.n_fps,i]) + cs.sumsqr(u[:,i])
+            obj += (
+                cs.sumsqr(x_des - x[:3*self.n_fps,i]) +
+                cs.sumsqr(x[3*self.n_fps:,i]) +
+                cs.sumsqr(u[:,i])
+            )
 
         obj += cs.sumsqr(x_des - x[:3*self.n_fps, self.horizon]) # terminal cost
 
