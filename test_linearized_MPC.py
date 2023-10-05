@@ -68,8 +68,8 @@ class TestLinearizedMPC:
     lmpc_opts = LinearizedMPCOptions(
         dt=0.1,
         N=10,
-        u_max=np.ones((12,)),
-        u_min=-np.ones((12,)),
+        u_max=cs.DM.ones(12),
+        u_min=-cs.DM.ones(12),
     )
 
     def _create_model(self):
@@ -79,44 +79,6 @@ class TestLinearizedMPC:
         setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
         return setup_model
 
-    def test_solve(self):
-        n_traj = 0
-        data = load_simulation_trajectory(n_traj)
-        fps_pos = data[1, 1:31]
-        ees_pose = data[1, 31:45]
-        ees_vel = data[1, 75:87]
-        goal_pos = data[1, 87:117]
-        z = np.concatenate((fps_pos, ees_pose))
-
-        model = self._create_model()
-        lmpc = LinearizedMPC(model, self.lmpc_opts)
-
-        u = lmpc._solve(z, ees_vel, goal_pos) 
-        u_lin_l = u[:,:3]
-        u_ang_l = u[:,3:6]
-        u_lin_r = u[:,6:9]
-        u_ang_r = u[:,9:12]
-        t = np.arange(0, self.lmpc_opts.N)*self.lmpc_opts.dt
-
-        _, axs = plt.subplots(3,1, sharex=True)
-        axs[0].plot(t, u_lin_l[:,0])
-        axs[0].plot(t, u_lin_r[:,0])
-        axs[1].plot(t, u_lin_l[:,1])
-        axs[1].plot(t, u_lin_r[:,1])
-        axs[2].plot(t, u_lin_l[:,2])
-        axs[2].plot(t, u_lin_r[:,2])
-        plt.tight_layout()
-
-        _, axs = plt.subplots(3,1, sharex=True)
-        axs[0].plot(t, u_ang_l[:,0])
-        axs[0].plot(t, u_ang_r[:,0])
-        axs[1].plot(t, u_ang_l[:,1])
-        axs[1].plot(t, u_ang_r[:,1])
-        axs[2].plot(t, u_ang_l[:,2])
-        axs[2].plot(t, u_ang_r[:,2])
-        plt.tight_layout()
-        plt.show()
-
     def test_task_completion(self):
         model = self._create_model()
         lmpc = LinearizedMPC(model, self.lmpc_opts)
@@ -124,12 +86,11 @@ class TestLinearizedMPC:
         env = DLOEnv()
         U = []
         z, fps_pos_des = env.reset()
-        fps_pos_cur = np.copy(z[:30])
-        fps_pos_des = fps_pos_cur
-        fps_pos_des[2::3] += 0.1
-        u = np.zeros((model.nu,))
-        for k in range(100):
-            u = lmpc(z, u, fps_pos_des)
+        # fps_pos_cur = np.copy(z[:30])
+        # fps_pos_des = fps_pos_cur
+        # fps_pos_des[2::3] += 0.2
+        for k in range(10):
+            u = lmpc(z, fps_pos_des)
             U.append(u)
             z = env.step(u)
 

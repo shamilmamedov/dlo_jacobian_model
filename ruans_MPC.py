@@ -12,6 +12,7 @@ class RuansMPCOptions:
     N: int
     u_max: Union[cs.DM, np.ndarray]
     u_min: Union[cs.DM, np.ndarray]
+    solver: str = 'qrqp'
 
 
 class RuansMPC:
@@ -74,13 +75,9 @@ class RuansMPC:
         # Define the QP
         qp = {'x': w, 'f': obj, 'g': g, 'p': p}
 
-        print("Creating solver...")
-        # Create a solver instance
-        # opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.tol': 1e-2}
-        # solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
-        # opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.tol': 1e-2}
-        # opts = {'print_iter': True, 'print_time': 1}
-        solver = cs.qpsol('solver', 'qrqp', qp)#, opts)
+        
+        opts = {'print_iter': True, 'print_time': 1}
+        solver = cs.qpsol('solver', self.options.solver, qp, opts)
         print("Solver successfully created! :)")
         return solver
     
@@ -90,7 +87,8 @@ class RuansMPC:
         # desired position of fps
         xd = cs.SX.sym('xd', self.nx)
         # state decision variables
-        X = cs.SX.sym('X', (self.nx, self.horizon+1))
+        X = cs.SX.sym('X', (self.nx, self.horizon+1))# Intial state constraint
+
         # control decision variables
         U = cs.SX.sym('U', (self.nu, self.horizon))
         return x0, xd, X, U

@@ -27,7 +27,7 @@ class DLOEnv:
         self.ees_pose_history = []
 
     def reset(self):
-        n_traj = 3
+        n_traj = 5
         data = load_simulation_trajectory(n_traj)
 
         self.goal_pos = torch.tensor(data[[1], 87:117])
