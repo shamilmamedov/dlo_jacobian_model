@@ -74,11 +74,8 @@ class RuansMPC:
 
         # Define the QP
         qp = {'x': w, 'f': obj, 'g': g, 'p': p}
-
-        
         opts = {'print_iter': True, 'print_time': 1}
         solver = cs.qpsol('solver', self.options.solver, qp, opts)
-        print("Solver successfully created! :)")
         return solver
     
     def _symbolic_vars_for_states_and_controls(self):
@@ -128,3 +125,31 @@ class RuansMPC:
         self.u = opt_decision_vars[:12].full().flatten()
 
         return np.array(self.u)
+    
+
+class RuansMPCWrapper:
+    def __init__(self) -> None:
+        opts = RuansMPCOptions(
+            dt=0.1,
+            N=10,
+            u_max=cs.DM.ones(12),
+            u_min=-cs.DM.ones(12),
+            solver='qrqp'
+        )
+
+        dlo_model_parms = casadi_dlo_model.load_model_parameters()
+        dlo_model = casadi_dlo_model.JacobianNetwork(**dlo_model_parms)
+        dlo_length = 0.5
+        setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
+
+        self.mpc = RuansMPC(setup_model, opts)
+
+    def generateControlInput(self, state):
+        z, xd = self._parse_state(state)
+        u = self.mpc(z, xd)
+        return u
+
+    def _parse_state(self, state):
+        z = state[1:45]
+        xd = state[87:117]
+        return z, xd

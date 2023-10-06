@@ -133,3 +133,31 @@ class LinearizedMPC:
         w_opt = sol['x']
         self.u = w_opt[:self.nu].full().flatten()
         return np.array(self.u)
+
+
+class LinearizedMPCWrapper:
+    def __init__(self) -> None:
+        opts = LinearizedMPCOptions(
+            dt=0.1,
+            N=10,
+            u_max=cs.DM.ones(12),
+            u_min=-cs.DM.ones(12),
+            solver='qrqp'
+        )
+
+        dlo_model_parms = casadi_dlo_model.load_model_parameters()
+        dlo_model = casadi_dlo_model.JacobianNetwork(**dlo_model_parms)
+        dlo_length = 0.5
+        setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
+
+        self.lmpc = LinearizedMPC(setup_model, opts)
+
+    def generateControlInput(self, state):
+        z, xd = self._parse_state(state)
+        u = self.mpc(z, xd)
+        return u
+
+    def _parse_state(self, state):
+        z = state[1:45]
+        xd = state[87:117]
+        return z, xd

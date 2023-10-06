@@ -6,7 +6,7 @@ import copy
 
 from utils.data import load_simulation_trajectory
 import casadi_dlo_model
-from linearized_MPC import LinearizedMPC, LinearizedMPCOptions
+from linearized_MPC import LinearizedMPC, LinearizedMPCOptions, LinearizedMPCWrapper
 from RBF import JacobianPredictor
 import visualization
 
@@ -27,7 +27,7 @@ class DLOEnv:
         self.action_history = []
 
     def reset(self):
-        n_traj = 0
+        n_traj = 8
         data = load_simulation_trajectory(n_traj)
 
         self.goal_pos = torch.tensor(data[[1], 87:117])
@@ -89,7 +89,7 @@ class TestLinearizedMPC:
         # fps_pos_cur = np.copy(z[:30])
         # fps_pos_des = fps_pos_cur
         # fps_pos_des[2::3] += 0.2
-        for k in range(10):
+        for k in range(25):
             u = lmpc(z, fps_pos_des)
             U.append(u)
             z = env.step(u)
@@ -118,7 +118,7 @@ class TestLinearizedMPC:
         axs[2].plot(t, u_ang_l[:,2])
         axs[2].plot(t, u_ang_r[:,2])
         plt.tight_layout()
-        plt.show()
+        # plt.show()
 
 
         fps_pos = np.concatenate(env.fps_pos_history, axis=0)
