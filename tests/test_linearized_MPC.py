@@ -1,67 +1,11 @@
 import numpy as np
 import casadi as cs
 import matplotlib.pyplot as plt
-import torch
 
-from dlo_jacobian_model.utils.data import load_simulation_trajectory
 import dlo_jacobian_model.casadi_dlo_model as casadi_dlo_model
 from dlo_jacobian_model.linearized_MPC import LinearizedMPC, LinearizedMPCOptions
-from RBF import JacobianPredictor
 import dlo_jacobian_model.visualization as visualization
-
-
-class DLOEnv:
-    def __init__(self, dt: float = 0.1, length: float = 0.5) -> None:
-        self.dt = torch.tensor(dt, dtype=torch.float32)
-        self.length = torch.tensor(length, dtype=torch.float32)
-
-        self.jp = JacobianPredictor()
-        self.jp.LoadModelWeights()
-
-        self.goal_pos = None
-        self.fps_pos = None
-        self.ees_pose = None
-
-        self.fps_pos_history = []
-        self.ees_pose_history = []
-        self.action_history = []
-
-    def reset(self):
-        n_traj = 8
-        data = load_simulation_trajectory(n_traj)
-
-        self.goal_pos = torch.tensor(data[[1], 87:117])
-        self.fps_pos = torch.tensor(data[[1], 1:31])
-        self.fps_vel = torch.tensor(data[[1], 45:75])
-        self.ees_pose = torch.tensor(data[[1], 31:45])
-
-        z = torch.hstack((self.fps_pos, self.ees_pose))
-        z = z.squeeze(0).numpy()
-        return z, self.goal_pos.squeeze(0).numpy()
-
-    def step(self, action):
-        action = torch.tensor(action, dtype=torch.float32).unsqueeze(0)
-        self.ees_pose = torch.tensor(
-            self.jp.calcNextEndsPose(
-                self.ees_pose, action, self.dt
-            )
-        )
-
-        self.fps_pos = self.jp.predNextFPsPositions(
-            self.length, self.fps_pos, self.ees_pose, action, self.dt
-        )
-        self._append_to_history()
-
-        z = torch.hstack((self.fps_pos, self.ees_pose))
-        z = z.squeeze(0).numpy()
-        return z
-
-    def _append_to_history(self):
-        self.fps_pos_history.append(self.fps_pos)
-        self.ees_pose_history.append(self.ees_pose)
-
-    def history(self):
-        return self.fps_pos_history, self.ees_pose_history
+from dlo_jacobian_model.env import DLOEnv
 
 
 class TestLinearizedMPC:
@@ -79,13 +23,13 @@ class TestLinearizedMPC:
         setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
         return setup_model
 
-    def test_task_completion(self):
+    def test_closed_loop_performance(self, n_traj: int = 0):
         model = self._create_model()
         lmpc = LinearizedMPC(model, self.lmpc_opts)
 
         env = DLOEnv()
         U = []
-        z, fps_pos_des = env.reset()
+        z, fps_pos_des = env.reset(n_traj)
         for k in range(25):
             u = lmpc(z, fps_pos_des)
             U.append(u)
@@ -128,7 +72,7 @@ class TestLinearizedMPC:
 
 if __name__ == '__main__':
     t = TestLinearizedMPC()
-    t.test_task_completion()
+    t.test_closed_loop_performance()
     # t.test_solve()
 
 
