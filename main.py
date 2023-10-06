@@ -2,7 +2,7 @@ import casadi as cs
 import numpy as np
 
 from RBF import JacobianPredictor 
-import casadi_dlo_model
+import dlo_jacobian_model.casadi_dlo_model as casadi_dlo_model
 
 
 def _load_model_parameters():

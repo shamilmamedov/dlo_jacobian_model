@@ -3,7 +3,7 @@ import numpy as np
 import casadi as cs
 
 import torch_rbf
-import casadi_rbf
+import dlo_jacobian_model.casadi_rbf as casadi_rbf
 
 
 N_TESTS = 10

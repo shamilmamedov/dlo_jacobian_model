@@ -1,15 +1,14 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import torch
-from torch._C import dtype
 import rospy
 from scipy.spatial.transform import Rotation as sciR
 
 # try:
-from utils.state_index import I
+from dlo_jacobian_model.utils.state_index import I
 # except:
 #     from state_index import I
-from utils.config_params import load_config_params
+from dlo_jacobian_model.utils.config_params import load_config_params
 
 
 params = load_config_params()

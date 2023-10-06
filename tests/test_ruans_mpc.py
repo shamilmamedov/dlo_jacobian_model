@@ -1,12 +1,15 @@
-import numpy as np
+import casadi as cs
+import matplotlib.pyplot as plt
 import torch
-import pytest
+import copy
+import numpy as np
 
+from dlo_jacobian_model.utils.data import load_simulation_trajectory
+import dlo_jacobian_model.casadi_dlo_model as casadi_dlo_model
+from dlo_jacobian_model.ruans_MPC import RuansMPC, RuansMPCOptions
+from RBF import JacobianPredictor
+import dlo_jacobian_model.visualization as visualization
 
-from RBF import JacobianPredictor 
-import nonlinear_MPC
-import casadi_dlo_model
-from utils.data import load_simulation_trajectory
 
 class DLOEnv:
     def __init__(self, dt: float = 0.1, length: float = 0.5) -> None:
@@ -24,7 +27,7 @@ class DLOEnv:
         self.ees_pose_history = []
 
     def reset(self):
-        n_traj = 0
+        n_traj = 5
         data = load_simulation_trajectory(n_traj)
 
         self.goal_pos = torch.tensor(data[[1], 87:117])
@@ -32,15 +35,26 @@ class DLOEnv:
         self.fps_vel = torch.tensor(data[[1], 45:75])
         self.ees_pose = torch.tensor(data[[1], 31:45])
 
+        z = torch.hstack((self.fps_pos, self.ees_pose))
+        z = z.squeeze(0).numpy()
+        return z, self.goal_pos.squeeze(0).numpy()
+
     def step(self, action):
         action = torch.tensor(action, dtype=torch.float32).unsqueeze(0)
-        self.ees_pose = self.jp.calcNextEndsPose(
-            self.ees_pose, action, self.dt
+        self.ees_pose = torch.tensor(
+            self.jp.calcNextEndsPose(
+                self.ees_pose, action, self.dt
+            )
         )
 
         self.fps_pos = self.jp.predNextFPsPositions(
             self.length, self.fps_pos, self.ees_pose, action, self.dt
         )
+        self._append_to_history()
+
+        z = torch.hstack((self.fps_pos, self.ees_pose))
+        z = z.squeeze(0).numpy()
+        return z
 
     def _append_to_history(self):
         self.fps_pos_history.append(self.fps_pos)
@@ -50,16 +64,14 @@ class DLOEnv:
         return self.fps_pos_history, self.ees_pose_history
 
 
-
-
-class TestNMPC:
-    nmpcs_options = nonlinear_MPC.NMPCOptions(
+class TestLinearizedMPC:
+    lmpc_opts = RuansMPCOptions(
         dt=0.1,
         N=10,
-        u_max=np.ones((12,)),
-        u_min=-np.ones((12,)),
+        u_max=cs.DM.ones(12),
+        u_min=-cs.DM.ones(12),
     )
-    
+
     def _create_model(self):
         dlo_model_parms = casadi_dlo_model.load_model_parameters()
         dlo_model = casadi_dlo_model.JacobianNetwork(**dlo_model_parms)
@@ -67,42 +79,24 @@ class TestNMPC:
         setup_model = casadi_dlo_model.DualArmDLOModel(dlo_model, dlo_length)
         return setup_model
 
-    def test_instantiation(self):
-        setup_model = self._create_model()
-        nmpc = nonlinear_MPC.NMPC(setup_model, self.nmpcs_options)
+    def test_closed_loop(self):
+        model = self._create_model()
+        rmpc = RuansMPC(model, self.lmpc_opts)
 
-        assert nmpc.iter_counter == 0
-        assert nmpc.options.dt == 0.1
-        assert nmpc.options.N == 10
-        assert nmpc.options.tf == 1.0
+        env = DLOEnv()
+        z, fps_pos_des = env.reset()
+        for k in range(40):
+            u = rmpc(z, fps_pos_des)
+            z = env.step(u)
 
-    def test_solve(self):
-        n_traj = 0
-        data = load_simulation_trajectory(n_traj)
-        fps_pos = torch.tensor(data[[1], 1:31]).numpy().ravel()
-        ees_pose = torch.tensor(data[[1], 31:45]).numpy().ravel()
-        goal_pos = torch.tensor(data[[1], 87:117]).numpy().ravel()
+        fps_pos = np.concatenate(env.fps_pos_history, axis=0)
+        fps_pos_des = np.tile(fps_pos_des, (fps_pos.shape[0], 1))
 
-        z = np.concatenate((fps_pos, ees_pose))
-        z_ref = np.hstack((goal_pos, ees_pose)).T
-
-        setup_model = self._create_model()
-        # self.nmpcs_options.build_ocp_solver = False
-        nmpc = nonlinear_MPC.NMPC(setup_model, self.nmpcs_options)
-        nmpc.set_reference(goal_pos, ees_pose)
-        nmpc(z)   
-        breakpoint()
-        print('AAAA')
-
+        visualization.visualize_mass_spring_system(
+            fps_pos, fps_pos_des, 0.1, 5
+        )
 
 
 if __name__ == '__main__':
-    # env = DLOEnv()
-    # env.reset()
-    # env.step(np.zeros(12))
-    # print(env.ees_pose)
-    # print(env.fps_pos)
-    # test_instantiation()
-
-    t = TestNMPC()
-    t.test_solve()
+    t = TestLinearizedMPC()
+    t.test_closed_loop()

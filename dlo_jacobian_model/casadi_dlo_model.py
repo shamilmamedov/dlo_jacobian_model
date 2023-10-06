@@ -4,8 +4,8 @@ from typing import Union
 from dataclasses import dataclass
 
 from RBF import JacobianPredictor 
-import casadi_rbf
-import casadi_nn
+import dlo_jacobian_model.casadi_rbf as casadi_rbf
+import dlo_jacobian_model.casadi_nn as casadi_nn
 
 
 class JacobianNetwork:

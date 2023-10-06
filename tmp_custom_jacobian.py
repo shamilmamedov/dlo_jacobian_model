@@ -2,8 +2,8 @@ import casadi as cs
 import time
 import numpy as np
 
-import casadi_nn
-import casadi_rbf
+import dlo_jacobian_model.casadi_nn as casadi_nn
+import dlo_jacobian_model.casadi_rbf as casadi_rbf
 
 
 def time_execution(fcn, args, n_iter=1000, fcn_name=''):

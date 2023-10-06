@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import visualization
+import dlo_jacobian_model.visualization as visualization
 
 
 if __name__ == '__main__':

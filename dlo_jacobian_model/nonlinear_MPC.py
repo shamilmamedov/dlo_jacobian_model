@@ -5,7 +5,7 @@ from scipy.linalg import block_diag
 from tempfile import mkdtemp
 import casadi as cs
 
-import casadi_dlo_model
+import dlo_jacobian_model.casadi_dlo_model as casadi_dlo_model
 
 @dataclass
 class NMPCOptions:
@@ -144,4 +144,3 @@ class NMPC:
         else: 
             self.acados_ocp_solver.reset()
             return np.zeros((self.model.nu,))
-        

@@ -13,9 +13,9 @@ import yaml
 
 import torch_rbf as rbf # reference: https://github.com/JeremyLinux/PyTorch-Radial-Basis-Function-Layer
 
-from utils.data_augmentation import dataRandomTransform 
-from utils.state_index import I
-from utils.config_params import load_config_params
+from dlo_jacobian_model.utils.data_augmentation import dataRandomTransform 
+from dlo_jacobian_model.utils.state_index import I
+from dlo_jacobian_model.utils.config_params import load_config_params
 
 
 params_online_window_time = 2  # unit: second

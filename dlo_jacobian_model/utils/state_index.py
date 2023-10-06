@@ -1,4 +1,4 @@
-from utils.config_params import load_config_params
+from dlo_jacobian_model.utils.config_params import load_config_params
 
 params = load_config_params()
 num_fps = params["DLO/num_FPs"]

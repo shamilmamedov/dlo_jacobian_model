@@ -4,7 +4,7 @@ import casadi as cs
 import numpy as np
 
 
-import casadi_dlo_model
+import dlo_jacobian_model.casadi_dlo_model as casadi_dlo_model
 
 
 @dataclass

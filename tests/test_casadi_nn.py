@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import casadi as cs
 
-import casadi_nn
+import dlo_jacobian_model.casadi_nn as casadi_nn
 
 N_TESTS = 50
 

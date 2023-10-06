@@ -2,13 +2,13 @@ import numpy as np
 import casadi as cs
 import matplotlib.pyplot as plt
 import torch
-import copy
 
-from utils.data import load_simulation_trajectory
-import casadi_dlo_model
-from linearized_MPC import LinearizedMPC, LinearizedMPCOptions, LinearizedMPCWrapper
+from dlo_jacobian_model.utils.data import load_simulation_trajectory
+import dlo_jacobian_model.casadi_dlo_model as casadi_dlo_model
+from dlo_jacobian_model.linearized_MPC import LinearizedMPC, LinearizedMPCOptions
 from RBF import JacobianPredictor
-import visualization
+import dlo_jacobian_model.visualization as visualization
+
 
 class DLOEnv:
     def __init__(self, dt: float = 0.1, length: float = 0.5) -> None:
@@ -86,9 +86,6 @@ class TestLinearizedMPC:
         env = DLOEnv()
         U = []
         z, fps_pos_des = env.reset()
-        # fps_pos_cur = np.copy(z[:30])
-        # fps_pos_des = fps_pos_cur
-        # fps_pos_des[2::3] += 0.2
         for k in range(25):
             u = lmpc(z, fps_pos_des)
             U.append(u)
